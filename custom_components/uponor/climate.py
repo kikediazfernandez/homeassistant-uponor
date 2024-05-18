@@ -43,6 +43,11 @@ async def async_setup_entry(hass, entry, async_add_entities):
 class UponorClimate(ClimateEntity):
 
     def __init__(self, state_proxy, thermostat, name):
+        self._enable_turn_on_off_backwards_compatibility = False
+        self._attr_supported_features = (ClimateEntityFeature.TARGET_TEMPERATURE |
+                                         ClimateEntityFeature.PRESET_MODE |
+                                         ClimateEntityFeature.TURN_OFF |
+                                         ClimateEntityFeature.TURN_ON)
         self._state_proxy = state_proxy
         self._thermostat = thermostat
         self._name = name
@@ -72,9 +77,7 @@ class UponorClimate(ClimateEntity):
 
     @property
     def supported_features(self):
-        if self._is_on:
-            return ClimateEntityFeature.TARGET_TEMPERATURE | ClimateEntityFeature.PRESET_MODE
-        return 0
+        return ClimateEntityFeature.TARGET_TEMPERATURE | ClimateEntityFeature.PRESET_MODE | ClimateEntityFeature.TURN_OFF | ClimateEntityFeature.TURN_ON
 
     @property
     def hvac_action(self):
@@ -97,6 +100,16 @@ class UponorClimate(ClimateEntity):
             await self._state_proxy.async_turn_off(self._thermostat)
             self._is_on = False
         if (hvac_mode == HVACMode.HEAT or hvac_mode == HVACMode.COOL) and not self._is_on:
+            await self._state_proxy.async_turn_on(self._thermostat)
+            self._is_on = True
+
+    async def async_turn_off(self) -> None:
+        if self._is_on:
+            await self._state_proxy.async_turn_off(self._thermostat)
+            self._is_on = False
+
+    async def async_turn_on(self) -> None:
+        if not self._is_on:
             await self._state_proxy.async_turn_on(self._thermostat)
             self._is_on = True
 
